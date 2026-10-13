@@ -1,17 +1,13 @@
 <!--
-  certifications.html — ATS section partial for Certifications.
+  certifications.html - ATS section partial for Certifications.
 
   Field placeholders filled per entry:
-    TITLE      — certification name
-    ORG_BLOCK  — conditional: cert-org span with org text when present;
-                 falls back to an empty cert-org span (ORG_EMPTY) so every row has the same cells
-    YEAR_BLOCK — conditional: cert-year span with year text when present;
-                 falls back to an empty cert-year span (YEAR_EMPTY) for the same reason
+    TITLE      - certification name
+    ORG_BLOCK  - issuer when present; omitted when absent
+    YEAR_BLOCK - year when present; omitted when absent
 
-  One row per certification, inline-block cells, no table and no flex — the
-  cells read left to right as one line of text.
-
-  Template packs: edit tag names, class names, and field order freely inside the ENTRY zone.
+  Stacked blocks only, so a parser walking the text layer reads
+  name, then issuer, then year.
 -->
 <!--ENTRY-->
 <div class="cert-item">
@@ -20,7 +16,7 @@
   {{YEAR_BLOCK}}
 </div>
 <!--ORG_BLOCK--><span class="cert-org">{{ORG}}</span><!--/ORG_BLOCK-->
-<!--ORG_EMPTY--><span class="cert-org"></span><!--/ORG_EMPTY-->
+<!--ORG_EMPTY--><!--/ORG_EMPTY-->
 <!--YEAR_BLOCK--><span class="cert-year">{{YEAR}}</span><!--/YEAR_BLOCK-->
-<!--YEAR_EMPTY--><span class="cert-year"></span><!--/YEAR_EMPTY-->
+<!--YEAR_EMPTY--><!--/YEAR_EMPTY-->
 <!--/ENTRY-->

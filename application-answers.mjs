@@ -87,20 +87,25 @@ function fileLines(entries) {
 
   return entries.map((entry, index) => {
     const label = inline(pick(entry, ['field', 'name', 'label', 'type'])) || `File ${index + 1}`;
-    const file = inline(pick(entry, ['path', 'file', 'filename', 'url'])) || 'Not recorded';
+    const file = inline(pick(entry, ['upload', 'uploadPath', 'path', 'file', 'filename', 'url'])) || 'Not recorded';
     const version = inline(pick(entry, ['version', 'variant']));
     return `${index + 1}. **${label}:** ${version ? `${file} (${version})` : file}`;
   });
 }
 
 export function normalizeApplicationAnswersSnapshot(snapshot = {}) {
+  const files = [...list(snapshot.files ?? snapshot.uploads ?? snapshot.filesUsed)];
+  const uploadFile = inline(snapshot.uploadFile ?? snapshot.upload_file ?? snapshot.uploadCopy);
+  if (uploadFile && !files.some((entry) => inline(pick(entry, ['upload', 'uploadPath', 'path', 'file', 'filename', 'url'])) === uploadFile)) {
+    files.unshift({ field: 'Resume upload', upload: uploadFile, version: snapshot.uploadVersion || 'employer copy' });
+  }
   return {
     date: normalizeDate(snapshot.date),
     state: normalizeState(snapshot.state),
     freeText: list(snapshot.freeText ?? snapshot.freeTextAnswers ?? snapshot.answers),
     selections: list(snapshot.selections ?? snapshot.selectedOptions),
     fieldValues: list(snapshot.fieldValues ?? snapshot.otherFields ?? snapshot.fields),
-    files: list(snapshot.files ?? snapshot.uploads ?? snapshot.filesUsed),
+    files,
   };
 }
 

@@ -6,7 +6,7 @@ version: 1.0.0
 <html lang="{{LANG}}">
 <head>
 <meta charset="UTF-8">
-<title>{{NAME}} — CV</title>
+<title>{{NAME}} - CV</title>
 <style>
   /* ── Modern ───────────────────────────────────────────────────────────────
      Contemporary product/tech look: oversized name, accent bar section
@@ -280,10 +280,7 @@ version: 1.0.0
   .edu-item { margin-bottom: 7px; }
 
   .edu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 10px;
+    display: block;
   }
 
   .edu-title { font-weight: 700; color: #0d0f13; }
@@ -306,15 +303,15 @@ version: 1.0.0
   .award-table { display: block; }
 
   .cert-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
-    margin-bottom: 3px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .cert-item > * {
+    display: block;
   }
 
   .cert-title { font-weight: 700; color: #0d0f13; }
-  .cert-org { flex: 1; color: #3a4048; }
+  .cert-org { color: #3a4048; }
   .cert-year { font-size: 9px; font-weight: 600; color: #6b7280; white-space: nowrap; }
 
   /* === SKILLS === */

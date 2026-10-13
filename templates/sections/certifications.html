@@ -1,14 +1,13 @@
 <!--
-  certifications.html — section partial for Certifications (#2183).
+  certifications.html - section partial for Certifications (#2183).
 
   Field placeholders filled per entry:
-    TITLE      — certification name
-    ORG_BLOCK  — conditional: cert-org span with org text when present;
-                 falls back to empty cert-org span (ORG_EMPTY) for table-cell alignment
-    YEAR_BLOCK — conditional: cert-year span with year text when present;
-                 falls back to empty cert-year span (YEAR_EMPTY) for alignment
+    TITLE      - certification name
+    ORG_BLOCK  - cert-org span when org is present; omitted when absent
+    YEAR_BLOCK - cert-year span when year is present; omitted when absent
 
-  Template packs: edit tag names, class names, and field order freely inside the ENTRY zone.
+  Empty issuer/year slots are omitted so extractors do not invent a blank
+  date. Rows stack title, then issuer, then year.
 -->
 <!--ENTRY-->
 <div class="cert-item">
@@ -17,7 +16,7 @@
   {{YEAR_BLOCK}}
 </div>
 <!--ORG_BLOCK--><span class="cert-org">{{ORG}}</span><!--/ORG_BLOCK-->
-<!--ORG_EMPTY--><span class="cert-org"></span><!--/ORG_EMPTY-->
+<!--ORG_EMPTY--><!--/ORG_EMPTY-->
 <!--YEAR_BLOCK--><span class="cert-year">{{YEAR}}</span><!--/YEAR_BLOCK-->
-<!--YEAR_EMPTY--><span class="cert-year"></span><!--/YEAR_EMPTY-->
+<!--YEAR_EMPTY--><!--/YEAR_EMPTY-->
 <!--/ENTRY-->

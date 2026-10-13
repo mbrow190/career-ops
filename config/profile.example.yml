@@ -184,6 +184,13 @@ cv:
   # templates/cv-template.html. You can also pick per-generation just by asking
   # (e.g. "use the modern template").
   # template: modern
+  # Professional filename for the copy an employer sees. The internal
+  # cv-{name}-{company}-ats.pdf stays in output/ and in data/pdf-index.tsv.
+  # Tokens: {{First}} {{Last}} {{Name}}
+  # upload_filename: "{{First}}-{{Last}}-Resume.pdf"
+  # Directory for that copy. Must stay inside the tracker workspace.
+  # Default is output/upload.
+  # upload_dir: output/upload
   # For a restrained Chinese technical CV, use: template: zh-minimal
   #
   # (Optional) Section order for the generated CV (#2533). The sections you name

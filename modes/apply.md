@@ -361,7 +361,7 @@ The section must include:
 - Free-text answers exactly as submitted
 - Dropdown/radio/checkbox selections made
 - Number or short-answer fields such as compensation, availability, start date, and work authorization
-- Files used, including CV, cover letter, portfolio, or other uploads with version/path when known
+- Files used, including CV, cover letter, portfolio, or other uploads with version/path when known. For the resume, record the professional upload copy (`output/upload/First-Last-Resume.pdf` or `cv.upload_filename`), not the internal `cv-{candidate}-{company}-ats.pdf`. Pass it as `uploadFile` or `files[].upload` to `application-answers.mjs`.
 
 Write the section at the end of the report, or replace only the existing `## Application Answers` section if it already exists. Do not rename, reorder, or edit the existing A-H report blocks or `## Keywords extracted`.
 

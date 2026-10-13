@@ -123,8 +123,10 @@ test('the documented commands produce a gated ATS variant with competencies unde
     const html = join(dir, 'output', 'cv-jane-smith-acme-ats.html');
     assert.ok(existsSync(html), 'output/cv-{candidate}-{company}-ats.html must be written');
     const text = readFileSync(html, 'utf-8');
-    assert.match(text, /Core Competencies: <\/span>Distributed Systems, Latency Tuning/,
+    assert.match(text, /<div class="skill-item">Distributed Systems, Latency Tuning<\/div>/,
       'competencies must reach the ATS render as a comma-delimited Skills line');
+    assert.doesNotMatch(text, /<(?:span|div) class="skill-category">/,
+      'ATS skills omit repeated category labels');
     assert.doesNotMatch(text, /class="competency-tag"/, 'no CSS-separated tag spans in the ATS render');
     assert.deepEqual(JSON.parse(readFileSync(styledJson, 'utf-8')), PAYLOAD,
       'the styled payload must keep its competency grid; only the ATS copy is folded');

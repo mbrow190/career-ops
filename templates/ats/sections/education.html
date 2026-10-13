@@ -1,20 +1,22 @@
 <!--
-  education.html — ATS section partial for Education.
+  education.html - ATS section partial for Education.
 
   Field placeholders filled per entry:
-    TITLE      — degree / course title
-    ORG_BLOCK  — conditional: institution span when org is present; omitted otherwise
-    YEAR       — graduation / completion year (empty string when absent)
-    DESC_BLOCK — conditional: description div when description is present; omitted otherwise
+    TITLE      - degree / course title
+    ORG_BLOCK  - institution when present; omitted otherwise
+    YEAR_BLOCK - year when present; omitted when absent
+    DESC_BLOCK - description when present; omitted otherwise
 
-  Template packs: edit tag names, class names, and field order freely inside the ENTRY zone.
+  School is a sibling of the degree, not nested inside it.
 -->
 <!--ENTRY-->
 <div class="edu-item">
-  <div class="edu-title">{{TITLE}}{{ORG_BLOCK}}</div>
-  <div class="edu-year">{{YEAR}}</div>
+  <div class="edu-title">{{TITLE}}</div>
+  {{ORG_BLOCK}}
+  {{YEAR_BLOCK}}
   {{DESC_BLOCK}}
 </div>
-<!--ORG_BLOCK--> <div class="edu-org">{{ORG}}</div><!--/ORG_BLOCK-->
+<!--ORG_BLOCK--><div class="edu-org">{{ORG}}</div><!--/ORG_BLOCK-->
+<!--YEAR_BLOCK--><div class="edu-year">{{YEAR}}</div><!--/YEAR_BLOCK-->
 <!--DESC_BLOCK--><div class="edu-desc">{{DESC}}</div><!--/DESC_BLOCK-->
 <!--/ENTRY-->

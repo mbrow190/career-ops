@@ -4,8 +4,8 @@
  * generate-pdf.mjs — HTML → PDF via Playwright
  *
  * Usage:
- *   node career-ops/generate-pdf.mjs <input.html> <output.pdf> [--format=letter|a4] [--report=NNN] [--kind=cv|cover] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check]
- *   node career-ops/generate-pdf.mjs --batch=<manifest.json> [--format=letter|a4] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check]
+ *   node career-ops/generate-pdf.mjs <input.html> <output.pdf> [--format=letter|a4] [--report=NNN] [--kind=cv|cover] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check] [--upload-name=First-Last-Resume.pdf] [--upload-dir=output/upload] [--no-upload-copy]
+ *   node career-ops/generate-pdf.mjs --batch=<manifest.json> [--format=letter|a4] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check] [--upload-name=First-Last-Resume.pdf] [--upload-dir=output/upload] [--no-upload-copy]
  *
  * --batch renders every document in a JSON manifest (an array of
  * {input, output, format?, reportNum?}) through ONE shared Chromium instead of
@@ -40,9 +40,9 @@
  */
 
 import { chromium } from 'playwright';
-import { resolve, dirname, relative, sep, isAbsolute, basename } from 'path';
+import { resolve, dirname, relative, sep, isAbsolute, basename, join } from 'path';
 import { readFile } from 'fs/promises';
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync, copyFileSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { randomUUID } from 'node:crypto';
 import { getCareerOpsRoot } from './path-resolver.mjs';
@@ -1232,6 +1232,108 @@ function nearestExistingPath(pathValue) {
   }
 }
 
+export const DEFAULT_UPLOAD_FILENAME = '{{First}}-{{Last}}-Resume.pdf';
+
+/**
+ * Split a display name into first and last tokens for an employer-facing
+ * filename. A single token is the first name; extra middle names are dropped
+ * so "Alex Rivera Cruz" becomes First=Alex Last=Cruz.
+ *
+ * @param {string} [fullName]
+ * @returns {{first: string, last: string}}
+ */
+export function splitPersonName(fullName) {
+  const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+  return {
+    first: parts[0] || '',
+    last: parts.length > 1 ? parts[parts.length - 1] : '',
+  };
+}
+
+/**
+ * Build a professional upload filename. Tokens: {{First}} {{Last}} {{Name}}.
+ * Path separators are stripped so the result is a single basename.
+ *
+ * @param {string} [template]
+ * @param {string} [fullName]
+ * @returns {string}
+ */
+export function formatUploadFilename(template, fullName) {
+  const { first, last } = splitPersonName(fullName);
+  const name = [first, last].filter(Boolean).join('-');
+  let raw = String(template || DEFAULT_UPLOAD_FILENAME)
+    .replaceAll('{{First}}', first)
+    .replaceAll('{{Last}}', last)
+    .replaceAll('{{Name}}', name)
+    .replace(/[/\\]/g, '-');
+  let base = basename(raw)
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/\.{2,}/g, '.')
+    .replace(/^\.+/, '')
+    .replace(/^-+|-+$/g, '');
+  if (!base || base === '.pdf') base = 'Resume.pdf';
+  if (!/\.pdf$/i.test(base)) base += '.pdf';
+  return base;
+}
+
+/**
+ * Read the upload-name settings from profile.yml without a new import.
+ * Sandbox copies of generate-pdf.mjs cannot grow a sibling module list.
+ *
+ * @param {string} [profilePath]
+ * @returns {{fullName: string, filenameTemplate: string, uploadDir: string}}
+ */
+export function readUploadProfile(profilePath) {
+  const empty = { fullName: '', filenameTemplate: '', uploadDir: '' };
+  try {
+    if (!profilePath || !existsSync(profilePath)) return empty;
+    const text = readFileSync(profilePath, 'utf-8');
+    const fullName = text.match(/^\s*full_name:\s*["']?([^"'#\n]+)/m)?.[1]?.trim() || '';
+    const filenameTemplate = text.match(/^\s*upload_filename:\s*["']?([^"'#\n]+)/m)?.[1]?.trim() || '';
+    const uploadDir = text.match(/^\s*upload_dir:\s*["']?([^"'#\n]+)/m)?.[1]?.trim() || '';
+    return { fullName, filenameTemplate, uploadDir };
+  } catch {
+    return empty;
+  }
+}
+
+/**
+ * Resolve the employer-facing copy path. Default directory is output/upload
+ * inside the tracker workspace.
+ *
+ * @param {string} workspaceRoot
+ * @param {{uploadName?: string, uploadDir?: string, filenameTemplate?: string, fullName?: string}} [opts]
+ * @returns {string}
+ */
+export function resolveUploadDest(workspaceRoot, opts = {}) {
+  const filename = formatUploadFilename(opts.uploadName || opts.filenameTemplate, opts.fullName);
+  const dir = resolve(workspaceRoot, opts.uploadDir || join('output', 'upload'));
+  return resolve(dir, filename);
+}
+
+/**
+ * Copy the indexed internal PDF to the professional upload name.
+ * The destination must stay inside the tracker workspace.
+ *
+ * @param {string} internalPdfPath
+ * @param {string} workspaceRoot
+ * @param {{uploadName?: string, uploadDir?: string, filenameTemplate?: string, fullName?: string}} [opts]
+ * @returns {string} Absolute path of the upload copy.
+ */
+export function writeUploadCopy(internalPdfPath, workspaceRoot, opts = {}) {
+  const dest = resolveUploadDest(workspaceRoot, opts);
+  if (!isWorkspaceOutputPath(dest, workspaceRoot)) {
+    throw new Error(
+      `Upload copy must stay inside the tracker workspace: ${dest}. `
+      + 'Use output/upload/ or --upload-dir under the workspace.',
+    );
+  }
+  if (resolve(internalPdfPath) === dest) return dest;
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFileSync(internalPdfPath, dest);
+  return dest;
+}
+
 /**
  * Confirm a PDF destination is lexically and canonically inside its workspace.
  * Resolving the nearest existing ancestor catches output directories that are
@@ -1488,6 +1590,7 @@ async function generatePDF() {
   // lib/page-format.mjs, which ranks it below the user's config/profile.yml.
   let inputPath, outputPath, format = null, reportNum = '', allowReorder = false, allowNonChronological = false;
   let maxPages = 2, maxPagesInput = '2', strictPages = false, batchManifestPath = null;
+  let uploadName = '', uploadDir = '', skipUploadCopy = false;
 
   for (const arg of args) {
     if (arg.startsWith('--format=')) {
@@ -1526,6 +1629,12 @@ async function generatePDF() {
       strictPages = true;
     } else if (arg === '--skip-fact-check') {
       skipFactCheck = true;
+    } else if (arg.startsWith('--upload-name=')) {
+      uploadName = arg.slice('--upload-name='.length).trim();
+    } else if (arg.startsWith('--upload-dir=')) {
+      uploadDir = arg.slice('--upload-dir='.length).trim();
+    } else if (arg === '--no-upload-copy') {
+      skipUploadCopy = true;
     } else if (!inputPath) {
       inputPath = arg;
     } else if (!outputPath) {
@@ -1593,12 +1702,12 @@ async function generatePDF() {
       console.error('--kind is not valid with --batch. Set "kind" per entry in the manifest instead.');
       process.exit(1);
     }
-    return runBatchFromManifest(batchManifestPath, { format, maxPages, strictPages, allowReorder, allowNonChronological, skipFactCheck });
+    return runBatchFromManifest(batchManifestPath, { format, maxPages, strictPages, allowReorder, allowNonChronological, skipFactCheck, uploadName, uploadDir, skipUploadCopy });
   }
 
   if (!inputPath || !outputPath) {
-    console.error('Usage: node generate-pdf.mjs <input.html> <output.pdf> [--format=letter|a4] [--report=NNN] [--kind=cv|cover] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check]');
-    console.error('   or: node generate-pdf.mjs --batch=<manifest.json> [--format=letter|a4] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check]');
+    console.error('Usage: node generate-pdf.mjs <input.html> <output.pdf> [--format=letter|a4] [--report=NNN] [--kind=cv|cover] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check] [--upload-name=First-Last-Resume.pdf] [--upload-dir=output/upload] [--no-upload-copy]');
+    console.error('   or: node generate-pdf.mjs --batch=<manifest.json> [--format=letter|a4] [--allow-reorder] [--allow-nonchronological] [--max-pages=N] [--strict-pages] [--skip-fact-check] [--upload-name=First-Last-Resume.pdf] [--upload-dir=output/upload] [--no-upload-copy]');
     console.error('');
     console.error('Batch mode renders every document in the JSON manifest (an array of');
     console.error('{input, output, format?, reportNum?, kind?}) through one shared Chromium and writes');
@@ -1689,6 +1798,9 @@ async function generatePDF() {
     inputPath,
     maxPages,
     strictPages,
+    uploadName,
+    uploadDir,
+    skipUploadCopy,
     styleTokens: readStyleTokens(resolve(workspaceRoot, 'config', 'profile.yml')),
   });
 }
@@ -1840,6 +1952,9 @@ async function runBatchFromManifest(manifestPath, globals) {
         inputPath: entryInput,
         maxPages: globals.maxPages,
         strictPages: globals.strictPages,
+        uploadName: globals.uploadName,
+        uploadDir: globals.uploadDir,
+        skipUploadCopy: globals.skipUploadCopy,
         styleTokens,
       });
     } catch (err) {
@@ -2140,7 +2255,23 @@ async function renderInPage(browser, html, outputPath, opts = {}) {
       console.error(`⚠️  Manifest update failed: ${err.message}`);
     }
 
-    return { outputPath, pageCount, size: pdfBuffer.length };
+    let uploadPath = '';
+    if (!opts.skipUploadCopy && artifactKind === 'cv') {
+      const profile = readUploadProfile(resolve(outputRoot, 'config', 'profile.yml'));
+      try {
+        uploadPath = writeUploadCopy(outputPath, outputRoot, {
+          uploadName: opts.uploadName || '',
+          uploadDir: opts.uploadDir || profile.uploadDir || '',
+          filenameTemplate: profile.filenameTemplate || '',
+          fullName: profile.fullName || '',
+        });
+        if (uploadPath) console.log(`📎 Upload copy: ${uploadPath}`);
+      } catch (err) {
+        console.error(`⚠️  Upload copy failed: ${err.message}`);
+      }
+    }
+
+    return { outputPath, uploadPath, pageCount, size: pdfBuffer.length };
   } finally {
     // Close the page so a batch does not accumulate pages into the shared
     // browser (leak → OOM). Optional-chained: the single path's browser.close()

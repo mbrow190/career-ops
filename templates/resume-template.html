@@ -17,7 +17,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{NAME}} — Resume</title>
+<title>{{NAME}} - Resume</title>
 <style>
   @font-face {
     font-family: 'Space Grotesk';
@@ -333,10 +333,7 @@
   }
 
   .edu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
+    display: block;
   }
 
   .edu-title {
@@ -374,18 +371,18 @@
      filler the resume variant drops, and the section is hidden entirely when
      the payload carries no entries. */
   .award-table {
-    display: table;
+    display: block;
     width: 100%;
   }
 
   .award-item {
-    display: table-row;
+    display: block;
+    margin-bottom: 8px;
   }
 
   .award-item > * {
-    display: table-cell;
-    vertical-align: baseline;
-    padding-bottom: 6px;
+    display: block;
+    padding-bottom: 2px;
   }
 
   .award-title {

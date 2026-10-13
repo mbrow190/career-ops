@@ -477,6 +477,21 @@ try {
       '--strict on a write invocation must be refused, not silently ignored',
     ]);
 
+    const withUpload = formatApplicationAnswersSection({
+      date: '2026-10-13',
+      state: 'filled',
+      uploadFile: 'output/upload/Alex-Rivera-Resume.pdf',
+    });
+    if (
+      withUpload.includes('Resume upload') &&
+      withUpload.includes('output/upload/Alex-Rivera-Resume.pdf') &&
+      withUpload.includes('employer copy')
+    ) {
+      pass('uploadFile is recorded as the Resume upload');
+    } else {
+      fail(`uploadFile missing from snapshot:\n${withUpload}`);
+    }
+
     const cliBroken = cliChecks.filter(([ok]) => !ok).map(([, detail]) => detail);
     if (cliBroken.length === 0) {
       pass('CLI --read/--strict expose the parser contract at the seam apply mode calls');

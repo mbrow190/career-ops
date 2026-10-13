@@ -74,7 +74,7 @@ Run `npm run jd:similarity -- {bundle-root}/jd/current.md {bundle-root}/jd/previ
     The fact gate proves nothing was invented; it cannot tell you whether these are the *right* bullets for the role. The audit researches the likely reviewer, dispatches a separate subagent role-playing them, and returns a bullet-by-bullet keep/cut/rewrite verdict plus a blunt "would I advance this to a screen?" call. It adds a subagent dispatch plus web research on top of the tailoring, which is why it is opted into rather than run on every PDF.
 
     The audit recommends; the user decides. If they take any rewrite, return to Step 17, rebuild the payload and the HTML, and re-run the fact gate before rendering. The audit is persisted only once that decision is known, and records which rewrites were applied — so the `## HM Audit` section never describes a CV the rendered PDF no longer matches. Do not re-run the audit against the rebuilt CV: a second dispatch doubles the cost for a verdict the user has already acted on.
-21. Execute: `node generate-pdf.mjs {html-path} {pdf-path} --format={letter|a4} --report={report number}`, where `{pdf-path}` is the active bundle's `cv/tailored/vNNN/cv.pdf` or `output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf` for a one-off CV. `{report number}` is the NNN from the report filename/link (e.g. `008` for `reports/008-acme-….md`), not the tracker `#` column. Pass it whenever the application has (or will have) a report; it records the PDF↔report linkage in `data/pdf-index.tsv` so the dashboard can open and regenerate the exact nested or flat HTML/PDF pair. Omit it only for one-off CVs with no tracker entry.
+21. Execute: `node generate-pdf.mjs {html-path} {pdf-path} --format={letter|a4} --report={report number}`, where `{pdf-path}` is the active bundle's `cv/tailored/vNNN/cv.pdf` or `output/cv-{candidate}-{company}-{YYYY-MM-DD}.pdf` for a one-off CV. `{report number}` is the NNN from the report filename/link (e.g. `008` for `reports/008-acme-….md`), not the tracker `#` column. Pass it whenever the application has (or will have) a report; it records the PDF↔report linkage in `data/pdf-index.tsv` so the dashboard can open and regenerate the exact nested or flat HTML/PDF pair. Omit it only for one-off CVs with no tracker entry. The renderer also writes an employer-facing copy to `output/upload/` (default name `{{First}}-{{Last}}-Resume.pdf` from `config/profile.yml` `cv.upload_filename`). The indexed file stays the internal path. Override with `--upload-name=` / `--upload-dir=` (still inside the workspace) or skip with `--no-upload-copy`.
     - The rendered PDF has a two-page warning threshold by default. `--max-pages=N` accepts a positive integer; pass `--max-pages=1` when the user or market prefers a one-page CV.
     - If the rendered PDF exceeds its threshold, generation warns loudly with the actual and allowed page counts plus trimming guidance, then reports and indexes the unchanged PDF so existing longer-CV flows keep working.
     - Pass `--strict-pages` only when the user or market requires a hard limit. Strict overflow leaves the draft available for inspection but does not report or index it as successful; trim lower-priority content and rerun.
@@ -85,7 +85,7 @@ Run `npm run jd:similarity -- {bundle-root}/jd/current.md {bundle-root}/jd/previ
       The fold moves the competencies into a `skills[]` entry (same facts, comma-delimited, under `Skills`) and invents nothing. Its three lints (`employer-in-role`, `parenthetical-in-company`, `multiple-date-ranges`) print on stderr and are **never** applied by the script. Show each finding to the user and leave the decision to them, the same way as Step 17a. A fix they choose goes into the Step 17 payload and both renders are rebuilt; never patch the ATS payload by hand. Exit 1 means the input was unreadable or malformed. Stop and report it; do not render from a partial file.
     - Resolve the template with `node cv-templates.mjs resolve cv ats` and render: `node build-cv-html.mjs /tmp/cv-{candidate}-{company}-ats.json output/cv-{candidate}-{company}-ats.html {ats-template}`. The output path is `output/` even when the styled CV lives in an application bundle. In this version the ATS variant is something you paste, not something you attach, so it is not a bundle artifact and not the tracker's `PDF` column. That column still reads from the styled PDF alone.
     - Gate it: `node verify-cv-facts.mjs output/cv-{candidate}-{company}-ats.html`. The fold cannot add a claim, but Step 19 allows fixing a gate failure in the styled **HTML**, and a fix made there never reaches the JSON this variant is built from. Gating the variant catches that drift instead of shipping it. If it fails, fix the Step 17 payload (not either HTML file), rebuild both, and re-run both gates.
-    - No PDF by default: the user copies the text out of the HTML. If they want an uploadable file too, run `node generate-pdf.mjs output/cv-{candidate}-{company}-ats.html output/cv-{candidate}-{company}-ats-{YYYY-MM-DD}.pdf --format={letter|a4}` **without** `--report`. With `--report`, the ATS PDF would be indexed against the report and replace the styled pair the dashboard opens and regenerates.
+    - No PDF by default: the user copies the text out of the HTML. If they want an uploadable file too, run `node generate-pdf.mjs output/cv-{candidate}-{company}-ats.html output/cv-{candidate}-{company}-ats-{YYYY-MM-DD}.pdf --format={letter|a4}` **without** `--report`. With `--report`, the ATS PDF would be indexed against the report and replace the styled pair the dashboard opens and regenerates. The professional upload copy is still written to `output/upload/` from this render.
 22. Verify ATS keyword coverage of the **tailored** CV against the role's evaluation report (when one exists): `node keyword-match.mjs "reports/{###}-{company-slug}-{YYYY-MM-DD}.md" --cv "{html-path}"`. Pass the report's full filename (e.g. `reports/008-acme-2026-09-28.md`), not the bare NNN that Step 21's `--report` takes, and keep both paths quoted. This text-extracts the HTML you just built and reports coverage %, present, thin, and missing keywords — the diagnostic for the document being sent. Surface any missing/thin keywords to the user (reformulate from real experience, never fabricate).
 23. Report: PDF path, number of pages, keyword coverage % (when Step 22 ran), the ATS variant's HTML path and any lint findings the user left open (when Step 21a ran), and any skill gaps from Step 4 still unaddressed
 
@@ -420,6 +420,27 @@ If the user says yes, run the full cover letter flow from `modes/cover.md` in sl
 
 Do not auto-generate the cover letter PDF without going through the interactive steps above.
 
+## Per-job customization (stay inside cv.md)
+
+The JSON payload already owns headline, summary, and skill order. Do not invent facts. Use the existing fields, then this merge if the user named a per-job overlay:
+
+1. Set `candidate.title` to the JD title wording only when the candidate's real level supports it (from `config/profile.yml` `candidate.title` or the overlay).
+2. Rewrite `summary` with JD keywords that already appear in `cv.md`.
+3. Reorder `skills[]` with `node cv-tailor.mjs /tmp/cv-{candidate}-{company}.json --tailor=output/tailor/{company}.yml`.
+4. Move whole sections with `cv.sections` in `config/profile.yml` (already supported). Drop a skills category only when the user asks and the facts still exist in `cv.md`.
+
+Overlay shape (`output/tailor/{company}.yml` or `--headline` / `--summary` / `--skill-order`):
+
+```yaml
+headline: Senior Backend Engineer
+summary: Backend engineer focused on latency and API design.
+skill_order:
+  - Languages
+  - Python
+```
+
+`skill_order` may name an existing category or an existing item. An unknown name is a hard error.
+
 ## Post-generation
 
-If the job is already in the tracker, flip its PDF cell from ❌ to ✅ with `node mark-pdf-ready.mjs {report number}` (the same report number passed to `--report` above). Do not edit `data/applications.md` by hand.
+If the job is already in the tracker, flip its PDF cell from ❌ to ✅ with `node mark-pdf-ready.mjs {report number}` (the same report number passed to `--report` above). Do not edit `data/applications.md` by hand. Tell the user both paths: the internal indexed PDF and the `output/upload/` copy to attach.

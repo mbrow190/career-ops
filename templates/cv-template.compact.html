@@ -6,7 +6,7 @@ version: 1.0.0
 <html lang="{{LANG}}">
 <head>
 <meta charset="UTF-8">
-<title>{{NAME}} — CV</title>
+<title>{{NAME}} - CV</title>
 <style>
   /* ── Compact ──────────────────────────────────────────────────────────────
      Maximum content per page. Tight leading, small type, inline section
@@ -275,10 +275,7 @@ version: 1.0.0
   .edu-item { margin-bottom: 3px; }
 
   .edu-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
+    display: block;
   }
 
   .edu-title { font-weight: 700; color: #191c22; }
@@ -296,15 +293,15 @@ version: 1.0.0
   .award-table { display: block; }
 
   .cert-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 6px;
-    margin-bottom: 1px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .cert-item > * {
+    display: block;
   }
 
   .cert-title { font-weight: 700; }
-  .cert-org { flex: 1; color: #2a3340; }
+  .cert-org { color: #2a3340; }
   .cert-year { font-size: 8.5px; color: #626b78; white-space: nowrap; }
 
   /* === SKILLS === */
