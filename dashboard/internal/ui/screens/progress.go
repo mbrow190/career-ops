@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/santifer/career-ops/dashboard/internal/i18n"
 	"github.com/santifer/career-ops/dashboard/internal/model"
 	"github.com/santifer/career-ops/dashboard/internal/theme"
 )
@@ -127,7 +128,7 @@ func (m ProgressModel) renderHeader() string {
 		Width(m.width).
 		Padding(0, 2)
 
-	title := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Mauve).Render("SEARCH PROGRESS")
+	title := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Mauve).Render(i18n.Current.ProgressTitle)
 
 	right := lipgloss.NewStyle().Foreground(m.theme.Subtext)
 	total := len(m.metrics.FunnelStages)
@@ -135,7 +136,7 @@ func (m ProgressModel) renderHeader() string {
 	if total > 0 {
 		totalCount = m.metrics.FunnelStages[0].Count
 	}
-	info := right.Render(fmt.Sprintf("%d evaluated | %.1f avg score", totalCount, m.metrics.AvgScore))
+	info := right.Render(fmt.Sprintf(i18n.Current.ProgressSummary, totalCount, m.metrics.AvgScore))
 
 	gap := m.width - lipgloss.Width(title) - lipgloss.Width(info) - 4
 	if gap < 1 {
@@ -150,11 +151,11 @@ func (m ProgressModel) renderFunnel() string {
 	sectionTitle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Sky)
 
 	var lines []string
-	lines = append(lines, padStyle.Render(sectionTitle.Render("Pipeline Funnel")))
+	lines = append(lines, padStyle.Render(sectionTitle.Render(i18n.Current.FunnelTitle)))
 
 	if len(m.metrics.FunnelStages) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
-		lines = append(lines, padStyle.Render(dimStyle.Render("No data")))
+		lines = append(lines, padStyle.Render(dimStyle.Render(i18n.Current.NoData)))
 		return strings.Join(lines, "\n")
 	}
 
@@ -203,7 +204,11 @@ func (m ProgressModel) renderFunnel() string {
 		label := labelStyle.Render(stage.Label)
 
 		pctStr := ""
-		if i > 0 {
+		// Same denominator, same rule as the rates below: safePct returns 0 when
+		// nothing was applied, so " (0%)" beside every stage would be reporting a
+		// share that was never computed. With no denominator the count alone is
+		// the honest answer.
+		if i > 0 && m.metrics.RatesDenominator > 0 {
 			pctStr = fmt.Sprintf(" (%.0f%%)", stage.Pct)
 		}
 		count := countStyle.Render(fmt.Sprintf("  %d%s", stage.Count, pctStr))
@@ -219,11 +224,11 @@ func (m ProgressModel) renderScoreDistribution() string {
 	sectionTitle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Sky)
 
 	var lines []string
-	lines = append(lines, padStyle.Render(sectionTitle.Render("Score Distribution")))
+	lines = append(lines, padStyle.Render(sectionTitle.Render(i18n.Current.ScoresTitle)))
 
 	if len(m.metrics.ScoreBuckets) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
-		lines = append(lines, padStyle.Render(dimStyle.Render("No data")))
+		lines = append(lines, padStyle.Render(dimStyle.Render(i18n.Current.NoData)))
 		return strings.Join(lines, "\n")
 	}
 
@@ -278,38 +283,51 @@ func (m ProgressModel) renderScoreDistribution() string {
 	return strings.Join(lines, "\n")
 }
 
+// rateUnavailable stands in for a rate with nothing to divide by. An em dash
+// rather than "0.0%" or "n/a": it reads as "not measured yet" and cannot be
+// mistaken for a measurement, which is the whole point.
+const rateUnavailable = "   —  "
+
 func (m ProgressModel) renderRates() string {
 	padStyle := lipgloss.NewStyle().Padding(0, 2)
 	sectionTitle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Sky)
 
 	var lines []string
-	lines = append(lines, padStyle.Render(sectionTitle.Render("Conversion Rates")))
+	lines = append(lines, padStyle.Render(sectionTitle.Render(i18n.Current.RatesTitle)))
 
 	labelStyle := lipgloss.NewStyle().Foreground(m.theme.Text)
 	valueStyle := lipgloss.NewStyle().Bold(true)
 	sepStyle := lipgloss.NewStyle().Foreground(m.theme.Overlay)
 
-	responseColor := m.rateColor(m.metrics.ResponseRate)
-	interviewColor := m.rateColor(m.metrics.InterviewRate)
-	offerColor := m.rateColor(m.metrics.OfferRate)
-
 	sep := sepStyle.Render("  |  ")
 
-	rates := labelStyle.Render("Response Rate: ") +
-		valueStyle.Foreground(responseColor).Render(fmt.Sprintf("%.1f%%", m.metrics.ResponseRate)) +
+	// Nothing applied means the three rates were never computed, so they are
+	// ABSENT rather than 0%. Printing the zero value put the user's search in
+	// the worst colour band before they had sent a single application; the em
+	// dash says "not yet" where "0.0%" said "failing". Same rule as
+	// rateOrNull() on the web side, which gates each rate on the count it was
+	// taken over rather than on its own value.
+	renderRate := func(label string, rate float64) string {
+		if m.metrics.RatesDenominator == 0 {
+			return labelStyle.Render(label) +
+				valueStyle.Foreground(m.theme.Overlay).Render(rateUnavailable)
+		}
+		return labelStyle.Render(label) +
+			valueStyle.Foreground(m.rateColor(rate)).Render(fmt.Sprintf("%.1f%%", rate))
+	}
+
+	rates := renderRate(i18n.Current.RateResponse, m.metrics.ResponseRate) +
 		sep +
-		labelStyle.Render("Interview Rate: ") +
-		valueStyle.Foreground(interviewColor).Render(fmt.Sprintf("%.1f%%", m.metrics.InterviewRate)) +
+		renderRate(i18n.Current.RateInterview, m.metrics.InterviewRate) +
 		sep +
-		labelStyle.Render("Offer Rate: ") +
-		valueStyle.Foreground(offerColor).Render(fmt.Sprintf("%.1f%%", m.metrics.OfferRate))
+		renderRate(i18n.Current.RateOffer, m.metrics.OfferRate)
 
 	lines = append(lines, padStyle.Render(rates))
 
 	// Active summary
 	dimStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
 	activeInfo := dimStyle.Render(fmt.Sprintf(
-		"%d active applications | %d total offers",
+		i18n.Current.ActiveInfo,
 		m.metrics.ActiveApps, m.metrics.TotalOffers,
 	))
 	lines = append(lines, padStyle.Render(activeInfo))
@@ -322,11 +340,11 @@ func (m ProgressModel) renderWeeklyActivity() string {
 	sectionTitle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Sky)
 
 	var lines []string
-	lines = append(lines, padStyle.Render(sectionTitle.Render("Weekly Activity")))
+	lines = append(lines, padStyle.Render(sectionTitle.Render(i18n.Current.WeeklyTitle)))
 
 	if len(m.metrics.WeeklyActivity) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
-		lines = append(lines, padStyle.Render(dimStyle.Render("No data")))
+		lines = append(lines, padStyle.Render(dimStyle.Render(i18n.Current.NoData)))
 		return strings.Join(lines, "\n")
 	}
 
@@ -385,9 +403,10 @@ func (m ProgressModel) renderHelp() string {
 
 	brand := lipgloss.NewStyle().Foreground(m.theme.Overlay).Render("career-ops by santifer.io")
 
-	keys := keyStyle.Render("\u2191\u2193") + descStyle.Render(" scroll  ") +
-		keyStyle.Render("PgUp/Dn") + descStyle.Render(" page  ") +
-		keyStyle.Render("Esc") + descStyle.Render(" back")
+	keys := keyStyle.Render("↑↓") + descStyle.Render(i18n.Current.HelpScroll) +
+		keyStyle.Render("PgUp/Dn") + descStyle.Render(i18n.Current.HelpPage) +
+		keyStyle.Render("t") + descStyle.Render(i18n.Current.HelpLanguage) +
+		keyStyle.Render("Esc") + descStyle.Render(i18n.Current.HelpBack)
 
 	gap := m.width - lipgloss.Width(keys) - lipgloss.Width(brand) - 2
 	if gap < 1 {

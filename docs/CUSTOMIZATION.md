@@ -9,7 +9,8 @@ Key sections:
 - **target_roles**: Your North Star roles and archetypes
 - **narrative**: Your headline, exit story, superpowers, proof points
 - **compensation**: Target range, minimum, currency
-- **location**: Country, timezone, visa status, on-site availability
+- **location**: Country, timezone, visa status, on-site availability, and structured work authorization (`authorized_in`, `needs_sponsorship`) that drives the Work-Auth signal in job evaluation (flags an explicit no-sponsorship JD as a hard blocker)
+- **culture_screen**: Structural criteria for team culture (the `deprioritize_if_absent` strict flag caps the culture score at 2/5 if evidence is entirely missing)
 
 ## Target Roles (modes/_profile.md)
 
@@ -32,6 +33,10 @@ Copy from `templates/portals.example.yml` and customize:
 2. **title_filter.negative**: Tech stacks or domains to exclude
 3. **search_queries**: WebSearch queries for job boards (Ashby, Greenhouse, Lever)
 4. **tracked_companies**: Companies to check directly
+
+**Filtering on a field other than the title (optional).** When a board publishes a structured field that says more than the title does — an occupation code, a department — define a whitelist for it under `field_filters` and set `filter_on` on that target (`filter_on: noc`, or `filter_on: [title, noc]` to require both). The keywords use the same language as `title_filter`. Targets without `filter_on` keep gating on the title. The provider has to emit the field (for example a `local_parser` script); postings that lack it pass and are counted, and the scan warns when a target never supplies it. See the "Declared-field whitelists" section of `templates/portals.example.yml`.
+
+`portals.yml` is meant to stay live, not be a static file — see [Keeping portals.yml live](KEEPING_PORTALS_LIVE.md) for the house rule that auto-adds companies as they come up, and the commands to validate the file after each change.
 
 ## CV Template (templates/cv-template.html)
 
@@ -66,7 +71,7 @@ Career-ops can integrate with external systems via Claude Code hooks. Example ho
 }
 ```
 
-Save hooks in `.claude/settings.json`.
+Save hooks in `.claude/settings.json` (Claude Code). OpenCode does not support hooks. For equivalent functionality, use custom commands (`.opencode/commands/`) or agents (`.opencode/agents/`) — see https://opencode.ai/docs/commands/.
 
 ## States (templates/states.yml)
 

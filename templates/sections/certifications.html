@@ -1,0 +1,22 @@
+<!--
+  certifications.html - section partial for Certifications (#2183).
+
+  Field placeholders filled per entry:
+    TITLE      - certification name
+    ORG_BLOCK  - cert-org span when org is present; omitted when absent
+    YEAR_BLOCK - cert-year span when year is present; omitted when absent
+
+  Empty issuer/year slots are omitted so extractors do not invent a blank
+  date. Rows stack title, then issuer, then year.
+-->
+<!--ENTRY-->
+<div class="cert-item">
+  <span class="cert-title">{{TITLE}}</span>
+  {{ORG_BLOCK}}
+  {{YEAR_BLOCK}}
+</div>
+<!--ORG_BLOCK--><span class="cert-org">{{ORG}}</span><!--/ORG_BLOCK-->
+<!--ORG_EMPTY--><!--/ORG_EMPTY-->
+<!--YEAR_BLOCK--><span class="cert-year">{{YEAR}}</span><!--/YEAR_BLOCK-->
+<!--YEAR_EMPTY--><!--/YEAR_EMPTY-->
+<!--/ENTRY-->

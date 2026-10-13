@@ -1,0 +1,28 @@
+<!--
+  education.html - section partial for Education (#2183).
+
+  Field placeholders filled per entry:
+    TITLE          - degree / course title
+    ORG_BLOCK      - institution when present; omitted otherwise
+    LOCATION_BLOCK - .edu-location when location present; omitted when absent
+    YEAR_BLOCK     - year when present; omitted when absent
+    DESC_BLOCK     - description when present; omitted otherwise
+
+  School is a sibling of the degree, not nested inside it, so extractors
+  read title then institution then year.
+-->
+<!--ENTRY-->
+<div class="edu-item">
+  <div class="edu-header">
+    <div class="edu-title">{{TITLE}}</div>
+    {{ORG_BLOCK}}
+    {{YEAR_BLOCK}}
+  </div>
+  {{LOCATION_BLOCK}}
+  {{DESC_BLOCK}}
+</div>
+<!--ORG_BLOCK--><div class="edu-org">{{ORG}}</div><!--/ORG_BLOCK-->
+<!--YEAR_BLOCK--><div class="edu-year">{{YEAR}}</div><!--/YEAR_BLOCK-->
+<!--LOCATION_BLOCK--><div class="edu-location">{{LOCATION}}</div><!--/LOCATION_BLOCK-->
+<!--DESC_BLOCK--><div class="edu-desc">{{DESC}}</div><!--/DESC_BLOCK-->
+<!--/ENTRY-->

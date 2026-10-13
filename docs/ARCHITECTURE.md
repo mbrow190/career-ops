@@ -1,5 +1,8 @@
 # Architecture
 
+This file describes the runtime flows. Design principles and the
+system/user data-contract layers live in [../ARCHITECTURE.md](../ARCHITECTURE.md).
+
 ## System Overview
 
 ```
@@ -24,7 +27,7 @@
      │                    Output Pipeline                      │
      │  ┌──────────┐  ┌────────────┐  ┌───────────────────┐  │
      │  │ Report.md│  │  PDF (HTML  │  │ Tracker TSV       │  │
-     │  │ (A-F eval)│  │  → Puppeteer)│  │ (merge-tracker)  │  │
+     │  │ (A-H eval)│  │  → Playwright)│ │ (merge-tracker)  │  │
      │  └──────────┘  └────────────┘  └───────────────────┘  │
      └────────────────────────────────────────────────────────┘
                                │
@@ -39,17 +42,20 @@
 1. **Input**: User pastes JD text or URL
 2. **Extract**: Playwright/WebFetch extracts JD from URL
 3. **Classify**: Detect archetype (1 of 6 types)
-4. **Evaluate**: 6 blocks (A-F):
+4. **Evaluate**: 8 blocks (A-H; H is conditional on scores ≥ 4.5):
    - A: Role summary
-   - B: CV match (gaps + mitigation)
+   - B: CV match (per-requirement importance + gaps + mitigation)
    - C: Level strategy
    - D: Comp research (WebSearch)
    - E: CV personalization plan
    - F: Interview prep (STAR stories)
-5. **Score**: Weighted average across 10 dimensions (1-5)
+   - G: Posting legitimacy (scam / ghost-job signals)
+   - H: Draft application answers (only when the score is 4.5 or above)
+5. **Score**: Weighted average across 5 dimensions (1-5)
 6. **Report**: Save as `reports/{num}-{company}-{date}.md`
 7. **PDF**: Generate ATS-optimized CV (`generate-pdf.mjs`)
-8. **Track**: Write TSV to `batch/tracker-additions/`, auto-merged
+8. **Track**: New entries via TSV in `batch/tracker-additions/` merged by
+   `merge-tracker.mjs`; status updates to existing rows via `set-status.mjs`
 
 ## Batch Processing
 
@@ -63,7 +69,7 @@ batch-input.tsv    →  batch-runner.sh  →  N × headless CLI workers
                     (tracks progress)
 ```
 
-Each worker is a headless AI CLI instance — the bundled `batch-runner.sh` invokes `claude -p`, but the architecture supports any CLI's headless mode (see the Headless / Batch Mode table in `AGENTS.md` for the correct command per CLI). Workers produce:
+Each worker is a headless AI CLI instance — the bundled `batch-runner.sh` currently runs `claude -p` workers only. See the Headless / Batch Mode table in `AGENTS.md`. Workers produce:
 - Report .md
 - PDF
 - Tracker TSV line
@@ -97,6 +103,7 @@ Scripts maintain data consistency:
 | `verify-pipeline.mjs` | Health check: statuses, duplicates, links |
 | `dedup-tracker.mjs` | Removes duplicate entries by company+role |
 | `normalize-statuses.mjs` | Maps status aliases to canonical values |
+| `fix-report-links.mjs` | Rewrites Report cells that link to a missing file to `—` (previewable, backed up) |
 | `cv-sync-check.mjs` | Validates setup consistency |
 
 ## Dashboard TUI
