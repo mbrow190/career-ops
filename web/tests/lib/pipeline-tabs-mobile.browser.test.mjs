@@ -12,6 +12,16 @@ import { liveServerSkip } from "../helpers/live-server.mjs";
 const url = process.env.PIPELINE_TABS_TEST_URL;
 const root = process.env.PIPELINE_TABS_TEST_ROOT;
 
+const inside = (inner, outer) =>
+  inner.x >= outer.x - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5;
+
+async function waitForTabInStrip(page, tab, strip) {
+  const deadline = Date.now() + 5_000;
+  while (!inside(await tab.boundingBox(), await strip.boundingBox()) && Date.now() < deadline) {
+    await page.waitForTimeout(100);
+  }
+}
+
 test("Pipeline status tabs stay on one scrollable row on a phone", { skip: liveServerSkip("PIPELINE_TABS_TEST_URL", "PIPELINE_TABS_TEST_ROOT"), timeout: 120_000 }, async (t) => {
   const origin = new URL(url);
   assert.ok(["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname));
@@ -27,16 +37,11 @@ test("Pipeline status tabs stay on one scrollable row on a phone", { skip: liveS
   const tabButton = (name) => page.getByRole("button", { name: new RegExp(`^${name} \\d+$`) });
   const tabs = PIPELINE_TABS.map(tabButton);
   const strip = tabs[0].locator("xpath=..");
-  const inside = (inner, outer) =>
-    inner.x >= outer.x - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5;
 
   await page.goto(`${origin.origin}/pipeline?tab=DISCARDED`);
   const discarded = page.getByRole("button", { name: /^DISCARDED \d+$/, pressed: true });
   await discarded.waitFor();
-  const deadline = Date.now() + 5_000; // the strip scrolls after hydration
-  while (!inside(await discarded.boundingBox(), await strip.boundingBox()) && Date.now() < deadline) {
-    await page.waitForTimeout(100);
-  }
+  await waitForTabInStrip(page, discarded, strip);
 
   const boxes = await Promise.all(tabs.map((tab) => tab.boundingBox()));
   const stripBox = await strip.boundingBox();
@@ -74,17 +79,12 @@ test("Changing the status tab on a phone scrolls only the tab strip, not the pag
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const inside = (inner, outer) =>
-    inner.x >= outer.x - 0.5 && inner.x + inner.width <= outer.x + outer.width + 0.5;
 
   await page.goto(`${origin.origin}/pipeline?tab=DISCARDED`);
   const discarded = page.getByRole("button", { name: /^DISCARDED \d+$/, pressed: true });
   const all = page.getByRole("button", { name: /^ALL \d+$/ });
   const strip = all.locator("xpath=..");
-  const deadline = Date.now() + 5_000; // the strip scrolls after hydration
-  while (!inside(await discarded.boundingBox(), await strip.boundingBox()) && Date.now() < deadline) {
-    await page.waitForTimeout(100);
-  }
+  await waitForTabInStrip(page, discarded, strip);
   assert.ok(!inside(await all.boundingBox(), await strip.boundingBox()), "ALL starts outside the strip");
 
   await page.evaluate(() => {
@@ -102,10 +102,7 @@ test("Changing the status tab on a phone scrolls only the tab strip, not the pag
   await all.evaluate((el) => el.click());
   await page.waitForURL(/tab=ALL/);
   await page.getByRole("button", { name: /^ALL \d+$/, pressed: true }).waitFor();
-  const settle = Date.now() + 5_000;
-  while (!inside(await all.boundingBox(), await strip.boundingBox()) && Date.now() < settle) {
-    await page.waitForTimeout(100);
-  }
+  await waitForTabInStrip(page, all, strip);
 
   assert.equal(await fillerTop(), before, "the content on screen did not move");
   assert.ok(inside(await all.boundingBox(), await strip.boundingBox()), "ALL is scrolled into view in the strip");
