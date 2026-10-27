@@ -40,7 +40,6 @@
  * Uses Chromium headless to render the HTML and produce a clean, ATS-parseable PDF.
  */
 
-import { chromium } from 'playwright';
 import { resolve, dirname, relative, sep, isAbsolute, basename } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'fs';
@@ -2185,6 +2184,14 @@ export async function inlineLocalFonts(html) {
   return html.replace(FONT_REF, (match, _quote, name) => dataUrls.get(name) || match);
 }
 
+// Playwright parses a multi-megabyte bundle. build-cv-html.mjs imports the
+// section guards from this file on every HTML render, so the browser library
+// loads on the launch call and not on import.
+async function launchChromium(options) {
+  const { chromium } = await import('playwright');
+  return chromium.launch(options);
+}
+
 /**
  * Render an HTML string to a PDF file via headless Chromium.
  *
@@ -2211,7 +2218,7 @@ export async function inlineLocalFonts(html) {
  * @returns {Promise<{outputPath: string, pageCount: number, size: number}>}
  */
 export async function renderHtmlToPdf(html, outputPath, opts = {}) {
-  const launchBrowser = opts.launchBrowser || ((options) => chromium.launch(options));
+  const launchBrowser = opts.launchBrowser || launchChromium;
   let browser = null;
   try {
     browser = await launchBrowser({ headless: true });
@@ -2427,7 +2434,7 @@ async function renderInPage(browser, html, outputPath, opts = {}) {
  * @returns {Promise<Array<{outputPath: string, ok: boolean, pageCount?: number, size?: number, error?: string}>>}
  */
 export async function renderBatch(entries, opts = {}) {
-  const launchBrowser = opts.launchBrowser || ((options) => chromium.launch(options));
+  const launchBrowser = opts.launchBrowser || launchChromium;
   const results = [];
   let browser = null;
   try {
