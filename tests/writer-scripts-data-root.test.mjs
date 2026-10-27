@@ -190,12 +190,12 @@ function markerFixture(script) {
   for (const file of CLOSURE[script]) copyFileSync(join(ROOT, file), join(codeRoot, file));
   // tracker-utils.mjs imports js-yaml at module scope, and generate-pdf.mjs
   // imports Playwright when it launches the browser, so without this the child
-  // dies before it can print anything and the assertions say nothing. linkNodeModules() rather than a raw
-  // symlinkSync: it uses a junction on Windows, where a 'dir' link needs a
-  // privilege a normal shell lacks, and it returns a reason instead of leaving a
-  // dangling link when the tree is absent. A swallowed EPERM here surfaced as
-  // ERR_MODULE_NOT_FOUND, which reads as a missing dependency rather than a
-  // failed link.
+  // dies before it can print anything and the assertions say nothing.
+  // linkNodeModules() rather than a raw symlinkSync: it uses a junction on
+  // Windows, where a 'dir' link needs a privilege a normal shell lacks, and it
+  // returns a reason instead of leaving a dangling link when the tree is
+  // absent. A swallowed EPERM here surfaced as ERR_MODULE_NOT_FOUND, which
+  // reads as a missing dependency rather than a failed link.
   const depsReason = linkNodeModules(codeRoot, ROOT);
 
   // The marker: rule 3. No CAREER_OPS_* variable is set when this is used.
