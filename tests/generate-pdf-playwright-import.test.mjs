@@ -1,4 +1,3 @@
-// generate-pdf.mjs owns the Chromium PDF render and the HTML section guards.
 // build-cv-html.mjs imports the guards on every HTML render. Loading the
 // browser library as a side effect of that import made each render pay to
 // parse Playwright before it wrote a single tag.
