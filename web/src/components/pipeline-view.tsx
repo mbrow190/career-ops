@@ -50,6 +50,7 @@ export function PipelineView({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState("");
   const activeTab = useRef<HTMLButtonElement>(null);
+  const tabStrip = useRef<HTMLDivElement>(null);
 
   // The URL is the SINGLE source of truth for tab/min/sort/dir, so the home stat
   // tiles' deep links AND the assistant's filterPipeline/navigate actions drive
@@ -100,6 +101,16 @@ export function PipelineView({
   useEffect(() => {
     if (!isPending) setPendingTab(null);
   }, [isPending]);
+
+  useEffect(() => {
+    const strip = tabStrip.current;
+    const active = activeTab.current;
+    if (!strip || !active) return;
+    const s = strip.getBoundingClientRect();
+    const a = active.getBoundingClientRect();
+    if (a.left < s.left) strip.scrollLeft += a.left - s.left;
+    else if (a.right > s.right) strip.scrollLeft += a.right - s.right;
+  }, [tab]);
 
   // The table filters on a deferred copy of the search text. The input shows
   // each keystroke at once; re-filtering and re-rendering every tracker row
@@ -204,7 +215,7 @@ export function PipelineView({
       </div>
 
       {/* tabs */}
-      <div className="mt-6 flex flex-wrap gap-1 border-b border-border">
+      <div ref={tabStrip} className="mt-6 flex gap-1 border-b border-border max-sm:overflow-x-auto sm:flex-wrap">
         {PIPELINE_TABS.map((t) => {
           const count =
             t === "INBOX"
@@ -222,7 +233,7 @@ export function PipelineView({
               className={cn(
                 // gap-1, not a whitespace text node: flex containers drop
                 // whitespace-only anonymous items, which rendered "INBOX0".
-                "-mb-px inline-flex items-center justify-center gap-1 border-b-2 px-3 py-2 text-xs font-medium transition-colors max-sm:min-h-[44px]",
+                "-mb-px inline-flex items-center justify-center gap-1 border-b-2 px-3 py-2 text-xs font-medium transition-colors max-sm:mb-0 max-sm:min-h-[44px] max-sm:shrink-0",
                 visibleTab === t
                   ? "border-brand text-foreground"
                   : "border-transparent text-muted hover:text-foreground",
