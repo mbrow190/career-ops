@@ -105,6 +105,27 @@ test('--dry-run --file does not treat the flag or the path as URLs', () => {
   }
 });
 
+test('a relative --file is read from the data root, not the current directory', () => {
+  const dataRoot = mkdtempSync(join(tmpdir(), 'liveness-data-'));
+  const cwd = mkdtempSync(join(tmpdir(), 'liveness-cwd-'));
+  writeFileSync(join(dataRoot, 'urls.txt'), 'not-a-url\n');
+  writeFileSync(join(cwd, 'urls.txt'), 'https://decoy.example/job\n');
+  try {
+    const result = run(['--no-record', '--no-fallback', '--file', 'urls.txt'], {
+      cwd,
+      env: { CAREER_OPS_ROOT: dataRoot },
+    });
+    const text = out(result);
+    assert.equal(result.status, 1, describeSpawn(result));
+    assert.match(text, /Checking 1 URL/);
+    assert.match(text, /not-a-url/);
+    assert.doesNotMatch(text, /decoy\.example/);
+  } finally {
+    rmSync(dataRoot, { recursive: true, force: true });
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 test('--file reads the path that follows it', () => {
   const dir = mkdtempSync(join(tmpdir(), 'liveness-file-'));
   const file = join(dir, 'urls.txt');

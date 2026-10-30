@@ -35,7 +35,7 @@ import { withPipelineLock } from './pipeline-lock.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 import { localToday } from './lib/local-today.mjs';
 import { existsSync, readFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, isAbsolute, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { flagValue, hasFlag, isNumericToken, validateFlags } from './lib/cli-flags.mjs';
 import { execFileSync } from 'child_process';
@@ -331,7 +331,11 @@ async function main() {
     for (const t of targets) labels.set(t.url, `#${t.num} ${t.company} · ${t.role} (${t.status})`);
     urls = targets.map((t) => t.url);
   } else if (hasFlag(args, '--file')) {
-    const text = await readFile(flagValue(args, '--file'), 'utf-8');
+    // A relative --file is a user file. Read it from the data root, not the
+    // directory the command was started in. An absolute path stays as named.
+    const named = flagValue(args, '--file');
+    const filePath = isAbsolute(named) ? named : resolve(getCareerOpsRoot(), named);
+    const text = await readFile(filePath, 'utf-8');
     urls = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
   } else {
     urls = positional;
