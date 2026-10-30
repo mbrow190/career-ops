@@ -147,8 +147,15 @@ function readProfile() {
     console.error(`Error: invalid profile YAML at ${profilePath}: ${err.message}`);
     process.exit(1);
   }
+  // A missing candidate key is the flat profile. A present key must be the
+  // candidate mapping. A list or a single value is not that mapping, and
+  // falling through would prefill the root name and contact instead.
   const candidate = profile.candidate;
-  const hasCandidate = candidate != null && typeof candidate === 'object' && !Array.isArray(candidate);
+  const hasCandidate = Object.prototype.hasOwnProperty.call(profile, 'candidate');
+  if (hasCandidate && (candidate == null || typeof candidate !== 'object' || Array.isArray(candidate))) {
+    console.error(`Error: profile field "candidate" in ${profilePath} must be a mapping`);
+    process.exit(1);
+  }
   const pick = key => {
     const sources = hasCandidate ? [candidate, profile] : [profile];
     for (const source of sources) {

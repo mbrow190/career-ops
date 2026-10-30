@@ -146,6 +146,20 @@ try {
     assert.ok(!omittedLocation.stderr.includes('must be a scalar'));
   });
 
+  const candidateList = run([
+    'full_name: Pat Decoy',
+    'candidate:',
+    '  - Avery Quinn',
+    '',
+  ].join('\n'));
+  check('a candidate list is a mapping error and does not use the root name', () => {
+    assert.equal(candidateList.status, 1, describeSpawn(candidateList));
+    assert.match(candidateList.stderr, /profile field "candidate"/);
+    assert.match(candidateList.stderr, /must be a mapping/);
+    assert.equal(candidateList.stdout, '');
+    assert.ok(!candidateList.stdout.includes('Decoy'));
+  });
+
   const locationList = run([
     'candidate:',
     '  full_name: Avery Quinn',
