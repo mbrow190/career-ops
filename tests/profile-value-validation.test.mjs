@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,6 +100,18 @@ test('the cli exits 2 for a bad spend tier', () => {
   }
 });
 
+function doctorEnv(dir, extra = {}) {
+  return {
+    ...process.env,
+    CAREER_OPS_ROOT: dir,
+    CAREER_OPS_DATA_DIR: '',
+    CAREER_OPS_PROFILE: '',
+    CAREER_OPS_PIPELINE: '',
+    CAREER_OPS_PORTALS: '',
+    ...extra,
+  };
+}
+
 function doctorProfileWarning(t, profile) {
   const dir = mkdtempSync(join(tmpdir(), 'co-profile-doctor-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -111,7 +123,7 @@ function doctorProfileWarning(t, profile) {
     cwd: dir,
     encoding: 'utf8',
     timeout: 60_000,
-    env: { ...process.env, CAREER_OPS_ROOT: dir, CAREER_OPS_DATA_DIR: '', CAREER_OPS_PROFILE: '' },
+    env: doctorEnv(dir),
   });
   const line = r.stdout.split('\n').find((l) => l.includes('config/profile.yml: '));
   assert.ok(line, r.stdout + r.stderr);
@@ -142,7 +154,7 @@ test('doctor --target names the target profile even with CAREER_OPS_PROFILE set'
     cwd: dir,
     encoding: 'utf8',
     timeout: 60_000,
-    env: { ...process.env, CAREER_OPS_ROOT: dir, CAREER_OPS_DATA_DIR: '', CAREER_OPS_PROFILE: elsewhere },
+    env: doctorEnv(dir, { CAREER_OPS_PROFILE: elsewhere }),
   });
   const out = r.stdout + r.stderr;
   assert.match(out, /config\/profile\.yml: spend_tier/, out);
@@ -164,11 +176,26 @@ test('doctor names a CAREER_OPS_PROFILE outside the root in the warning summary'
     cwd: dir,
     encoding: 'utf8',
     timeout: 60_000,
-    env: { ...process.env, CAREER_OPS_ROOT: dir, CAREER_OPS_DATA_DIR: '', CAREER_OPS_PROFILE: elsewhere },
+    env: doctorEnv(dir, { CAREER_OPS_PROFILE: elsewhere }),
   });
   const out = r.stdout + r.stderr;
   const summary = out.split('\n').find((l) => l.includes('1 issue —'));
   assert.ok(summary, out);
   assert.ok(summary.includes(`${elsewhere}: 1 issue`), summary);
   assert.doesNotMatch(summary, /config\/profile\.yml/);
+});
+
+test('doctor does not create an inherited pipeline file outside the fixture', (t) => {
+  const decoyDir = mkdtempSync(join(tmpdir(), 'co-pipeline-decoy-'));
+  const decoy = join(decoyDir, 'pipeline.md');
+  const prevPipeline = process.env.CAREER_OPS_PIPELINE;
+  process.env.CAREER_OPS_PIPELINE = decoy;
+  t.after(() => {
+    if (prevPipeline === undefined) delete process.env.CAREER_OPS_PIPELINE;
+    else process.env.CAREER_OPS_PIPELINE = prevPipeline;
+    rmSync(decoyDir, { recursive: true, force: true });
+  });
+  const line = doctorProfileWarning(t, 'spend_tier: gold\n');
+  assert.match(line, /known settings hold values the readers ignore/);
+  assert.equal(existsSync(decoy), false);
 });
