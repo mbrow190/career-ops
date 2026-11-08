@@ -58,3 +58,15 @@ test("pendingInbox drops done postings and repeated URLs", () => {
   ];
   assert.deepEqual(pendingInbox(inbox).map((j) => j.role), ["First", "Third"]);
 });
+
+test("a skipped posting stays out of the inbox under another URL spelling", () => {
+  // The checked row is not first. Holding the key only after a live row
+  // would leave the alias above it in the list.
+  const inbox = [
+    { url: "https://job-boards.greenhouse.io/acme/jobs/42", done: false, role: "Alias" },
+    { url: "https://boards.greenhouse.io/acme/jobs/42?utm_source=li", done: true, role: "Skipped" },
+    { url: "https://careers.acme.example/open?gh_jid=42", done: false, role: "Embed" },
+    { url: "https://example.com/keep", done: false, role: "Keep" },
+  ];
+  assert.deepEqual(pendingInbox(inbox).map((j) => j.role), ["Keep"]);
+});

@@ -76,6 +76,63 @@ test("a re-listing after a dead row surfaces again", () => {
   assert.equal(result.count, 1);
 });
 
+test("a skipped posting stays out under another URL spelling", () => {
+  const rows = [
+    header,
+    "https://boards.greenhouse.io/acme/jobs/42?utm_source=li\t2026-08-09\tgreenhouse\tStaff Engineer\tAcme\tadded\tRemote",
+    "https://job-boards.greenhouse.io/acme/jobs/42\t2026-08-10\tgreenhouse\tStaff Engineer\tAcme\tskipped_expired\tRemote",
+  ];
+  const result = collectWhatsNew(rows, { cutoff: Date.parse("2026-08-03"), toOffer });
+  assert.equal(result.count, 0);
+  assert.deepEqual(result.offers, []);
+});
+
+test("a newer added row for that same posting key still wins", () => {
+  const rows = [
+    header,
+    "https://boards.greenhouse.io/acme/jobs/42\t2026-08-08\tgreenhouse\tStaff Engineer\tAcme\tadded\tRemote",
+    "https://job-boards.greenhouse.io/acme/jobs/42\t2026-08-09\tgreenhouse\tStaff Engineer\tAcme\tskipped_expired\tRemote",
+    "https://careers.acme.example/open?gh_jid=42\t2026-08-10\tgreenhouse\tStaff Engineer\tAcme\tadded\tRemote",
+  ];
+  const result = collectWhatsNew(rows, { cutoff: Date.parse("2026-08-03"), toOffer });
+  assert.equal(result.count, 1);
+  assert.equal(result.offers[0].url, "https://careers.acme.example/open?gh_jid=42");
+});
+
+test("an unchecked posting that is still there to score stays in the feed", () => {
+  const rows = [
+    header,
+    "https://example.com/keep\t2026-08-10\ttest\tAnalyst\tOther\tadded\tRemote",
+    "https://boards.greenhouse.io/acme/jobs/42\t2026-08-10\tgreenhouse\tStaff Engineer\tAcme\tadded\tRemote",
+  ];
+  const result = collectWhatsNew(rows, {
+    cutoff: Date.parse("2026-08-03"),
+    toOffer,
+    checkedKeys: new Set(["greenhouse:42"]),
+  });
+  assert.deepEqual(result.offers.map((offer) => offer.url), ["https://example.com/keep"]);
+  assert.equal(result.count, 1);
+});
+
+test("a checked posting comes back when a newer added row follows the skip", () => {
+  const rows = [
+    header,
+    "https://boards.greenhouse.io/acme/jobs/42\t2026-08-08\tgreenhouse\tStaff Engineer\tAcme\tadded\tRemote",
+    "https://boards.greenhouse.io/acme/jobs/42\t2026-08-09\tgreenhouse\tStaff Engineer\tAcme\tskipped_expired\tRemote",
+    "https://job-boards.greenhouse.io/acme/jobs/42\t2026-08-10\tgreenhouse\tStaff Engineer\tAcme\tadded\tRemote",
+    "https://example.com/keep\t2026-08-10\ttest\tAnalyst\tOther\tadded\tRemote",
+  ];
+  const result = collectWhatsNew(rows, {
+    cutoff: Date.parse("2026-08-03"),
+    toOffer,
+    checkedKeys: new Set(["greenhouse:42"]),
+  });
+  assert.deepEqual(result.offers.map((offer) => offer.url).sort(), [
+    "https://example.com/keep",
+    "https://job-boards.greenhouse.io/acme/jobs/42",
+  ].sort());
+});
+
 test("an ordinary skipped row does not retire its URL", () => {
   // Only `expired` is a death certificate. skipped_dup / skipped_title mean
   // "this row is not itself a fresh match" — retiring on those would hide live
