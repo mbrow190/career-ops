@@ -147,10 +147,41 @@ test('the cursor gains a message id only after the row is saved, and not when th
 });
 
 test('the skip line names the placeholder title the filter rejected', async () => {
-  const { placeholderSkipNote } = await cursorApi();
-  const note = placeholderSkipNote({ title: [{ title: PLACEHOLDER }, { title: PLACEHOLDER }, { title: 'Gardener' }] });
-  assert.match(note, /Job lead \(email\)/);
-  assert.match(note, /2/);
+  const { gmailSkipDetail, placeholderSkipNote } = await cursorApi();
+  assert.equal(
+    placeholderSkipNote({ title: [{ title: PLACEHOLDER }, { title: PLACEHOLDER }, { title: 'Gardener' }] }),
+    '2 leads titled "Job lead (email)" missed the title filter and stay unread',
+  );
+  assert.equal(
+    placeholderSkipNote({ title: [{ title: PLACEHOLDER }] }),
+    '1 lead titled "Job lead (email)" missed the title filter and stays unread',
+  );
   assert.equal(placeholderSkipNote({ title: [{ title: 'Gardener' }] }), '');
   assert.equal(placeholderSkipNote({}), '');
+  assert.equal(
+    gmailSkipDetail('1 title filter', { title: [{ title: PLACEHOLDER }] }),
+    '1 title filter; 1 lead titled "Job lead (email)" missed the title filter and stays unread',
+  );
+});
+
+test('the engine keeps the message id through the title filter and does not commit it', async () => {
+  const { sanitizeJob, admitPluginJobs } = await import('../../plugins.mjs');
+  const { messageIdsReadyToCommit, placeholderSkipNote } = await cursorApi();
+  const found = sanitizeJob({
+    title: PLACEHOLDER,
+    url: 'https://www.linkedin.com/comm/jobs/view/4100000001?refId=x1',
+    messageIds: ['msg-title'],
+  });
+  assert.deepEqual(found.messageIds, ['msg-title']);
+  const { jobs, skipped } = admitPluginJobs([found], {
+    id: 'gmail',
+    jobPostings: true,
+    pipelineUrls: new Set(),
+    config: { title_filter: { positive: ['engineer'] } },
+    gateOptions: { blacklist: new Map(), seen: new Set(), locationFilter: () => true },
+  });
+  assert.equal(jobs.length, 0);
+  assert.equal(skipped.title.length, 1);
+  assert.deepEqual(messageIdsReadyToCommit(jobs, skipped), []);
+  assert.match(placeholderSkipNote(skipped), /stays unread/);
 });

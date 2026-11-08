@@ -19871,6 +19871,7 @@ try {
     'https://jobs.lever.co/acme/b71cd010-d3cf-446c-80fa',
     'https://careers.example.com/static-site-engineer',
     'https://example.com/jobs/senior-media-buyer',
+    'https://www.linkedin.com/comm/jobs/view/4100000001/?trackingId=abc&refId=x1&trk=eml-email_job_alert',
   ];
   const lost = postings.filter(u => !isCleanUrl(u));
   if (lost.length === 0) pass('isCleanUrl() still accepts real job postings');

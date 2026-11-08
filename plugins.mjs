@@ -35,6 +35,7 @@ import { appendToPipeline, appendToScanHistory, PORTALS_PATH } from './scan.mjs'
 import { createAdmissionGate, formatSkipCounts } from './lib/admission-gate.mjs';
 import { localToday } from './lib/local-today.mjs';
 import { canonicalJobKey } from './url-key.mjs';
+import { commitProcessedMessages, gmailSkipDetail, messageIdsReadyToCommit } from './plugins/gmail/index.mjs';
 import { isMainModule } from './lib/is-main-module.mjs';
 import { getCareerOpsRoot, resolveTrackerPath } from './path-resolver.mjs';
 import { resolveColumns, parseTrackerRow, isHeaderRow, isSeparatorRow } from './tracker-parse.mjs';
@@ -59,7 +60,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 /** Keep only the canonical Job fields — drop any extra keys a plugin returns. */
-function sanitizeJob(job) {
+export function sanitizeJob(job) {
   if (!job || typeof job !== 'object') return null;
   const title = typeof job.title === 'string' ? job.title.trim() : '';
   const url = typeof job.url === 'string' ? job.url.trim() : '';
@@ -68,6 +69,9 @@ function sanitizeJob(job) {
   if (typeof job.company === 'string') out.company = job.company.trim();
   if (typeof job.location === 'string') out.location = job.location.trim();
   if (job.salary !== undefined) out.salary = job.salary;
+  if (Array.isArray(job.messageIds) && job.messageIds.every((id) => typeof id === 'string' && id)) {
+    out.messageIds = job.messageIds;
+  }
   return out;
 }
 
@@ -165,8 +169,8 @@ export function admitPluginJobs(found, { id, jobPostings = false, pipelineUrls =
     ? { config }
     : { titleFilter: () => true, locationFilter: () => true, blacklist: new Map() };
   const gate = createAdmissionGate({ ...discoveryFilters, ...gateOptions });
-  const { admitted } = gate.partition(newPipelineJobs(found, pipelineUrls).map(j => ({ ...j, source: `plugin:${id}` })));
-  return { jobs: admitted, counts: gate.counts };
+  const { admitted, skipped } = gate.partition(newPipelineJobs(found, pipelineUrls).map(j => ({ ...j, source: `plugin:${id}` })));
+  return { jobs: admitted, counts: gate.counts, skipped };
 }
 
 /** Frozen, read-only view of the user's tracker for `export` hooks. No file handle. */
@@ -279,22 +283,26 @@ async function cmdRun(args) {
       process.exit(1);
     }
     const found = results.filter(r => r.ok && Array.isArray(r.result)).flatMap(r => r.result).map(sanitizeJob).filter(Boolean);
-    const { jobs, counts } = admitPluginJobs(found, {
+    const { jobs, counts, skipped } = admitPluginJobs(found, {
       id,
       jobPostings: manifest.jobPostings,
       pipelineUrls: existingPipelineUrls(),
       config: manifest.jobPostings ? loadPortalsConfig() : {},
     });
-    const skipped = formatSkipCounts(counts);
-    console.log(`${id} ${hook}: ${found.length} found, ${jobs.length} new${skipped ? ` (skipped: ${skipped})` : ''}.`);
+    const skipText = id === 'gmail' ? gmailSkipDetail(formatSkipCounts(counts), skipped) : formatSkipCounts(counts);
+    console.log(`${id} ${hook}: ${found.length} found, ${jobs.length} new${skipText ? ` (skipped: ${skipText})` : ''}.`);
     if (dryRun) { jobs.slice(0, 20).forEach(j => console.log(`  • ${j.title} — ${j.url}`)); console.log('(--dry-run: pipeline not written)'); return; }
-    if (jobs.length) {
-      await appendToPipeline(jobs, { pipelinePath: PIPELINE_PATH });
+    const rows = jobs.map(({ messageIds, ...job }) => job);
+    if (rows.length) {
+      await appendToPipeline(rows, { pipelinePath: PIPELINE_PATH });
       // Recorded so the next ingest, and every scanner, sees these as known.
       // Only postings: an interview event in scan-history would read as a
       // scanned job everywhere scan-history is counted.
-      if (manifest.jobPostings) await appendToScanHistory(jobs, localToday(), 'added');
-      console.log(`→ Appended ${jobs.length} to ${PIPELINE_LABEL}. Run /career-ops pipeline to evaluate.`);
+      if (manifest.jobPostings) await appendToScanHistory(rows, localToday(), 'added');
+      console.log(`→ Appended ${rows.length} to ${PIPELINE_LABEL}. Run /career-ops pipeline to evaluate.`);
+    }
+    if (id === 'gmail') {
+      commitProcessedMessages({ dataRoot: DATA_ROOT }, messageIdsReadyToCommit(jobs, skipped));
     }
     return;
   }

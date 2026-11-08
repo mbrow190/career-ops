@@ -36,14 +36,14 @@ const ASSET_HOST_PREFIXES = ['cdn.', 'static.', 'assets.', 'img.', 'images.', 'm
 export function isCleanUrl(url) {
   try {
     const u = new URL(url);
-    const lowerUrl = url.toLowerCase();
+    const hostAndPath = `${u.hostname}${u.pathname}`.toLowerCase();
     const badKeywords = [
       'click', 'track', 'openpixel', 'sendgrid', 'unsubscribe', 'optout',
       'newsletter', 'subscribe', 'w3.org', 'doubleclick', 'googlesyndication',
       'googleadservices', 'mailgun', 'mandrill', 'mjml', 'github.com/login',
       'linkedin.com/legal', 'linkedin.com/help', 'linkedin.com/settings',
     ];
-    if (badKeywords.some(kw => lowerUrl.includes(kw))) return false;
+    if (badKeywords.some(kw => hostAndPath.includes(kw))) return false;
     // Page assets, not postings. Job-alert emails embed one company logo per job,
     // and those URLs pass every check above: https, no tracker keyword, hosted on
     // the board's own domain. They land in the pipeline as untitled "job leads" you

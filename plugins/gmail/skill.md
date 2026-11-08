@@ -26,7 +26,13 @@ plugins:
 
 ## Data it produces
 
-`Job[]` ({ title, url, company, location }) — the engine de-dups against the
-pipeline and appends new ones. It maintains its own processed-message cursor in
-`data/gmail-state.json`, under your data root, to avoid re-reading the same
-emails.
+`Job[]` ({ title, url, company, location }). The engine de-dups against the
+pipeline and appends new ones. A job-board link keeps its posting when the
+query carries a tracker key such as `trackingId`. The plugin strips the keys
+the tracker already strips.
+
+The processed-message cursor lives in `data/gmail-state.json`, under your data
+root. A message id is written when the message has no usable job URL, or after
+a lead from it is saved or already in the pipeline. A lead titled
+`Job lead (email)` that misses your title filter is named in the skip line and
+stays unread. `--dry-run` does not write the cursor.
