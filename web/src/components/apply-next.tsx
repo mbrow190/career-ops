@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useStartApply } from "@/components/apply-button";
-import { applyDestination } from "@/lib/apply-destination.mjs";
+import { applyButtonTitle, applyDestination } from "@/lib/apply-destination.mjs";
 
 export function ApplyNext({
   n,
@@ -20,7 +20,7 @@ export function ApplyNext({
 }) {
   const start = useStartApply();
   const dest = applyDestination({ n, pdfOnDisk, postingUrl, alreadyOnReport: false });
-  if (dest.kind !== "apply") {
+  if (dest.kind !== "apply" && dest.kind !== "handoff") {
     return (
       <div className="mb-3 max-w-xl">
         <p className="text-sm text-muted">
@@ -37,6 +37,7 @@ export function ApplyNext({
   return (
     <button
       type="button"
+      title={applyButtonTitle(dest)}
       onClick={() => start(dest, company)}
       className="mb-3 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-medium text-brand-foreground transition hover:bg-brand-200 max-sm:min-h-[44px]"
     >

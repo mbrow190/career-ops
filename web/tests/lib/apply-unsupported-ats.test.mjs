@@ -572,7 +572,7 @@ async function runChild(source) {
   }
 }
 
-test("a failed vendor import succeeds on the next call", async () => {
+test("a missing code root still refuses Workday from the shared plan", async () => {
   const vendor = pathToFileURL(join(here, "../../src/lib/apply/unsupported-ats.mjs")).href;
   const missing = join(here, "../fixtures");
   const url = "https://acme.wd1.myworkdayjobs.com/en-US/External/job/Role";
@@ -580,22 +580,21 @@ test("a failed vendor import succeeds on the next call", async () => {
     process.env.CAREER_OPS_CODE_ROOT = ${JSON.stringify(missing)};
     const { unsupportedInAppAts } = await import(${JSON.stringify(vendor)});
     const url = ${JSON.stringify(url)};
-    let rejected = false;
-    try {
-      await unsupportedInAppAts(url);
-    } catch {
-      rejected = true;
-    }
+    const first = await unsupportedInAppAts(url);
     delete process.env.CAREER_OPS_CODE_ROOT;
     const hit = await unsupportedInAppAts(url);
-    console.log(JSON.stringify({ rejected, vendor: hit && hit.vendor, postingUrl: hit && hit.postingUrl }));
+    console.log(JSON.stringify({
+      first: first && first.vendor,
+      vendor: hit && hit.vendor,
+      postingUrl: hit && hit.postingUrl,
+    }));
   `);
-  assert.equal(result.rejected, true);
+  assert.equal(result.first, "workday");
   assert.equal(result.vendor, "workday");
   assert.equal(result.postingUrl, url);
 });
 
-test("POST /api/apply/session returns a controlled error when the vendor file cannot load", async () => {
+test("POST /api/apply/session still refuses Workday when the code root is missing", async () => {
   const route = pathToFileURL(join(here, "../../src/app/api/apply/session/route.ts")).href;
   const alias = pathToFileURL(join(here, "../helpers/web-ts-alias-loader.mjs")).href;
   const liveness = pathToFileURL(join(root, "liveness-browser.mjs")).href;
@@ -623,13 +622,13 @@ test("POST /api/apply/session returns a controlled error when the vendor file ca
     const body = await res.json();
     console.log(JSON.stringify({
       status: res.status,
-      hasError: typeof body.error === "string" && body.error.length > 0,
+      vendor: body.vendor,
       unsupported: body.unsupported === true,
       launch: globalThis.__applyLaunchAttempts || 0,
     }));
   `);
-  assert.equal(result.status, 500);
-  assert.equal(result.hasError, true);
-  assert.equal(result.unsupported, false);
+  assert.equal(result.status, 200);
+  assert.equal(result.vendor, "workday");
+  assert.equal(result.unsupported, true);
   assert.equal(result.launch, 0);
 });

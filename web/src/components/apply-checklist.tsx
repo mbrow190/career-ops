@@ -10,6 +10,7 @@ import { MarkPdfReadyButton } from "@/components/mark-pdf-ready-button";
 import { CvPdfFileActions } from "@/components/cv-pdf-file-actions";
 import { saveStatus } from "@/lib/pipeline-status.mjs";
 import { appliedWriteAllowed } from "@/lib/applied-confirm.mjs";
+import { useStartApply } from "@/components/apply-button";
 
 type CopyItem = { label: string; text: string };
 type PdfFile = { relativePath: string; downloadHref: string } | null;
@@ -31,7 +32,8 @@ export function ApplyChecklist({
   education,
   cvMissing,
   tips,
-  blocked = null,
+  handoff = null,
+  offerId,
   trackerNum,
   reportNum,
   status,
@@ -51,7 +53,8 @@ export function ApplyChecklist({
   education: string;
   cvMissing: boolean;
   tips: Tip[];
-  blocked?: { label: string; message: string; tip: string } | null;
+  handoff?: { label: string; message: string; tip: string } | null;
+  offerId: string;
   trackerNum: string | null;
   reportNum: number | null;
   status: string;
@@ -73,20 +76,13 @@ export function ApplyChecklist({
         </Link>
       </header>
 
-      {blocked ? (
-        <Section title={blocked.label}>
-          <table className="w-full text-sm">
-            <caption className="sr-only">Why this portal is filled outside the app</caption>
-            <tbody>
-              <tr className="border-t border-border">
-                <td className="py-2 pr-4 align-top font-medium">{blocked.label}</td>
-                <td className="py-2 text-muted">
-                  <p>{blocked.message}</p>
-                  {blocked.tip ? <p className="mt-2">{blocked.tip}</p> : null}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      {handoff ? (
+        <Section title={handoff.label}>
+          <p className="text-sm text-muted">{handoff.message}</p>
+          {handoff.tip ? <p className="mt-2 text-sm text-muted">{handoff.tip}</p> : null}
+          {postingUrl ? (
+            <TryReader postingUrl={postingUrl} company={company} n={offerId} />
+          ) : null}
         </Section>
       ) : null}
 
@@ -175,6 +171,27 @@ export function ApplyChecklist({
         {!trackerNum && <p className="mt-2 text-xs text-faint">Applied and seed follow-up need a tracker row.</p>}
       </Section>
     </PageFrame>
+  );
+}
+
+function TryReader({
+  postingUrl,
+  company,
+  n,
+}: {
+  postingUrl: string;
+  company: string;
+  n: string;
+}) {
+  const start = useStartApply();
+  return (
+    <button
+      type="button"
+      className={`${PILL} mt-3`}
+      onClick={() => start({ kind: "apply", href: "/apply", url: postingUrl, n }, company)}
+    >
+      Try the form reader anyway
+    </button>
   );
 }
 

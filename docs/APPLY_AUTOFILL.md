@@ -11,6 +11,8 @@ The agent prepares the responses, selects the options, and types out the text fi
 
 We have field-tested the auto-fill flow across several major ATS platforms (Ashby, Greenhouse, Lever, and Workable). The agent adapts its behavior to handle specific ATS quirks silently:
 
+The web Apply button opens the form reader for Ashby, Greenhouse, Lever, and a posting on `apply.workable.com`. Every other host in the shared vendor table opens the apply checklist first and names the vendor. That page includes **Try the form reader anyway**. Workday, iCIMS, and UKG still refuse that try before Chrome opens. A company careers host that embeds one of these vendors is not detected unless the hostname matches the table.
+
 ### Ashby
 
 - **Duplicate Prevention:** Ashby merges candidates based on their email. Before filling out the form, the agent checks if you've already applied to this company. If so, it warns you and suggests a modified email alias (like `you+teamname@domain.com`) to prevent silent failures or unintended profile merges.
