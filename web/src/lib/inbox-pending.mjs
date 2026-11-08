@@ -22,21 +22,40 @@ export function reconcileInbox(inbox, applications) {
 }
 
 /**
- * Pending inbox postings, deduped by URL (pipeline.md can list the same
- * posting twice), so the header count, the tab count and the triage list
- * agree on one number.
+ * Canonical keys of checked inbox rows. A checked spelling has to hold the
+ * key, or an unchecked alias of the same posting stays pending.
+ *
+ * @param {{ url: string, done: boolean }[]} inbox
+ * @returns {Set<string>}
+ */
+export function checkedInboxKeys(inbox) {
+  const keys = new Set();
+  for (const job of inbox) {
+    if (!job?.done) continue;
+    const key = canonicalJobKey(job.url) || job.url;
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+/**
+ * Pending inbox postings, deduped by canonical posting key (pipeline.md can
+ * list the same posting twice), so the header count, the tab count and the
+ * triage list agree on one number. A checked row dismisses every spelling,
+ * including an unchecked alias listed earlier.
  *
  * @template {{ url: string, done: boolean }} T
  * @param {T[]} inbox
  * @returns {T[]}
  */
 export function pendingInbox(inbox) {
+  const dismissed = checkedInboxKeys(inbox);
   const seen = new Set();
   const out = [];
   for (const j of inbox) {
     const key = canonicalJobKey(j.url) || j.url;
-    if (j.done || seen.has(key)) continue;
-    seen.add(key);
+    if (j.done || dismissed.has(key) || seen.has(key)) continue;
+    if (key) seen.add(key);
     out.push(j);
   }
   return out;

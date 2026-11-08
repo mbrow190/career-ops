@@ -1,3 +1,5 @@
+import { canonicalJobKey } from "./core/url-key.mjs";
+
 /** Cards the home dashboard renders when no explicit limit is asked for. */
 export const DEFAULT_OFFER_LIMIT = 24;
 
@@ -43,34 +45,74 @@ export function resolveOfferLimit(raw) {
  */
 const EXPIRED_STATUS = /expired/i;
 
+function postingKey(url) {
+  if (typeof url !== "string" || !url) return "";
+  return canonicalJobKey(url) || url;
+}
+
+/**
+ * Posting keys that have an `added` row later in the file than an expired row.
+ *
+ * @param {string[]} rows
+ * @returns {Set<string>}
+ */
+function relistedKeys(rows) {
+  const newestAdded = new Map();
+  const newestExpired = new Map();
+  for (let i = 1; i < rows.length; i++) {
+    const columns = rows[i].split("\t");
+    const key = postingKey(columns[0]);
+    if (!key) continue;
+    const status = columns[5] || "";
+    if (EXPIRED_STATUS.test(status)) newestExpired.set(key, i);
+    else if (status.toLowerCase() === "added") newestAdded.set(key, i);
+  }
+  const relisted = new Set();
+  for (const [key, at] of newestAdded) {
+    const expiredAt = newestExpired.get(key);
+    if (expiredAt != null && at > expiredAt) relisted.add(key);
+  }
+  return relisted;
+}
+
 /**
  * Collect fresh, unique offers while keeping the response payload bounded.
  * `count` always represents the full result set; `offers` is only the slice the
  * caller asked to render. This prevents a UI card limit from masquerading as
  * the number of matches found.
+ *
+ * `checkedKeys` are canonical keys of pipeline rows the user marked done.
+ * Those stay out unless a newer `added` row already beat an expired row for
+ * the same key.
+ *
+ * @param {string[]} rows
+ * @param {{ cutoff: number, toOffer: (columns: string[]) => object | null, offerLimit?: number, fallbackLimit?: number, checkedKeys?: Set<string> | string[] }} options
  */
-export function collectWhatsNew(rows, { cutoff, toOffer, offerLimit = DEFAULT_OFFER_LIMIT, fallbackLimit = 12 }) {
-  const seen = new Set();
+export function collectWhatsNew(rows, { cutoff, toOffer, offerLimit = DEFAULT_OFFER_LIMIT, fallbackLimit = 12, checkedKeys = null }) {
+  const checked = checkedKeys instanceof Set ? checkedKeys : new Set(checkedKeys || []);
+  const relisted = checked.size > 0 ? relistedKeys(rows) : new Set();
+  const retired = new Set();
+  const seenUrls = new Set();
   const offers = [];
   let count = 0;
   let anyDated = false;
 
   const add = (columns, limit) => {
-    // A confirmed-dead row RETIRES its URL for the rest of the walk (#3891).
-    // scan-history is append-only, so proving a posting dead adds a row — it
-    // cannot edit the `added` row that first surfaced it. Rejecting only the
-    // dead row itself left that older `added` row free to resurface the
-    // posting on every request until the lookback window moved past it, which
-    // is what made a re-checked, provably dead posting keep coming back.
-    // Walking newest-first is what makes this safe: a posting re-listed at the
-    // same URL is reached (and counted) before its older death certificate.
+    // A confirmed-dead row retires the posting for the rest of the walk
+    // (#3891). The key is canonicalJobKey, not the exact URL string: inbox
+    // Skip writes `skipped_expired`, and the other spelling of that posting
+    // has to stay out too. The walk is newest-first, so a later `added` row
+    // for the same key is counted before the older death certificate.
+    const key = postingKey(columns[0]);
     if (EXPIRED_STATUS.test(columns[5] || "")) {
-      if (columns[0]) seen.add(columns[0]);
+      if (key) retired.add(key);
       return;
     }
+    if (key && retired.has(key)) return;
     const offer = toOffer(columns);
-    if (!offer || seen.has(offer.url)) return;
-    seen.add(offer.url);
+    if (!offer || seenUrls.has(offer.url)) return;
+    if (key && checked.has(key) && !relisted.has(key)) return;
+    seenUrls.add(offer.url);
     count += 1;
     if (offers.length < limit) offers.push(offer);
   };

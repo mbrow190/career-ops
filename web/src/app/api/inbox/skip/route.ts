@@ -3,7 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { careerOpsRoot } from "@/lib/career-ops";
 import { resolveCodeRoot } from "@/lib/core/code-root.mjs";
-import { setInboxSkip } from "@/lib/inbox-skip.mjs";
+import { postingUrl, setInboxSkip } from "@/lib/inbox-skip.mjs";
+import { recordInboxSkipHistory } from "@/lib/inbox-skip-history.mjs";
 import { readJsonObject } from "@/lib/json-body";
 
 export const runtime = "nodejs";
@@ -58,6 +59,22 @@ export async function POST(req: Request) {
           ...(code === "busy" ? { headers: { "Retry-After": "5" } } : {}),
         },
       );
+    }
+    if (result.matched > 0) {
+      const recorded = await recordInboxSkipHistory({
+        root,
+        pipelinePath: file,
+        url: postingUrl(url) || url,
+        done,
+        cwd: process.cwd(),
+        env: process.env,
+      });
+      if (!recorded.ok) {
+        return NextResponse.json(
+          { error: "The inbox was updated, but fresh matches could not record the skip.", code: recorded.error || "history" },
+          { status: 500 },
+        );
+      }
     }
     return NextResponse.json({ ok: true, done, matched: result.matched, changed: result.changed });
   } catch {

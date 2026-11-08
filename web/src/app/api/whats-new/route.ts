@@ -1,4 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
 import { careerOpsRoot, readApplications, readLinkedReport, readScanHistoryLines } from "@/lib/career-ops";
+import { checkedInboxKeys } from "@/lib/inbox-pending.mjs";
+import { parseInbox } from "@/lib/pipeline-table.mjs";
 import { getNormalizeTextKey } from "@/lib/core/text-key";
 import { getAggregatorRule } from "@/lib/core/aggregator-id";
 import { evaluatedKeys, isEvaluated } from "@/lib/whats-new-suppression.mjs";
@@ -71,11 +75,26 @@ export async function GET(req: Request) {
     };
   };
 
+  let checkedKeys: Set<string>;
+  try {
+    const pipelineFile = path.join(careerOpsRoot(), "data", "pipeline.md");
+    const pipelineText = fs.readFileSync(pipelineFile, "utf8");
+    checkedKeys = checkedInboxKeys(parseInbox(pipelineText));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") checkedKeys = new Set();
+    else {
+      return Response.json(
+        { error: `pipeline could not be read: ${(err as Error)?.message ?? "unknown error"}`, offers: [], count: 0 },
+        { status: 500 },
+      );
+    }
+  }
+
   // Same rule as the scan history above, for the linked reports: a missing one
   // is "URL unknown", any other read failure throws from readLinkedReport. The
   // reads are lazy, inside toOffer, so they surface here.
   try {
-    const { offers: pool, count } = collectWhatsNew(rows, { cutoff, toOffer, offerLimit: MAX_OFFER_LIMIT });
+    const { offers: pool, count } = collectWhatsNew(rows, { cutoff, toOffer, offerLimit: MAX_OFFER_LIMIT, checkedKeys });
     const offers = rankOffers(pool, loadFitTargets(), offerLimit);
     return Response.json({ offers, count });
   } catch (err) {
