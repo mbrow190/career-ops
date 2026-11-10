@@ -38,8 +38,7 @@ export function AnalyticsShell({ total, view, children }: {
     <PageFrame>
       <header className="flex flex-col gap-5 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-text">Operations / Analytics</p>
-          <h1 className="mt-2 font-display text-3xl tracking-tight text-landing sm:text-4xl">Search intelligence</h1>
+          <h1 className="font-display text-2xl tracking-tight text-landing">Analytics</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
             A read on the roles you are pursuing, the funnel they move through, and the patterns worth acting on.
           </p>
